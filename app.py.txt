@@ -4,20 +4,16 @@ import os
 
 app = Flask(__name__)
 
-# --- SEUS DADOS ---
-TOKEN = os.environ.get("TOKEN") # você vai colocar no Render
-ID_NUMERO = os.environ.get("ID_NUMERO")
+TOKEN = os.environ.get("TOKEN", "")
+ID_NUMERO = os.environ.get("ID_NUMERO", "")
 LINK_COMUNIDADE = "https://chat.whatsapp.com/JPvLwPHZcc42v8JDdHgqAe"
-# ------------------
 
 def enviar_msg(para, texto):
+    if not TOKEN or not ID_NUMERO:
+        return
     url = f"https://graph.facebook.com/v20.0/{ID_NUMERO}/messages"
     headers = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
-    data = {
-        "messaging_product": "whatsapp",
-        "to": para,
-        "text": {"body": texto}
-    }
+    data = {"messaging_product": "whatsapp", "to": para, "text": {"body": texto}}
     requests.post(url, headers=headers, json=data)
 
 @app.route("/", methods=["GET"])
@@ -27,32 +23,28 @@ def home():
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
     if request.method == "GET":
-        # Validação da Meta
         if request.args.get("hub.verify_token") == "vitor123":
             return request.args.get("hub.challenge")
-        return "Erro de validação"
-
-    # Recebe mensagem
+        return "Erro", 403
     try:
         entry = request.json['entry'][0]['changes'][0]['value']
         if 'messages' in entry:
             msg = entry['messages'][0]
             de = msg['from']
             texto = msg.get('text', {}).get('body', '').lower()
-
-            if texto in ["oi", "olá", "ola", "menu", "inicio"]:
-                resposta = f"Olá! 👋 Aqui é do Vitor!\n\nTenho uma Comunidade exclusiva com ofertas, novidades e avisos em primeira mão.\n\n👉 Digite:\n1️⃣ - Quero entrar na Comunidade\n2️⃣ - Falar com o Vitor"
+            if texto in ["oi", "olá", "ola", "menu", "inicio", "início"]:
+                resposta = f"Olá! 👋 Aqui é do Vitor!\n\nTenho uma Comunidade exclusiva com ofertas e avisos em primeira mão.\n\n👉 Digite:\n1️⃣ - Quero entrar na Comunidade\n2️⃣ - Falar com o Vitor"
             elif texto == "1":
-                resposta = f"Boa! Entra aqui e já aproveita: 👇\n{LINK_COMUNIDADE}\n\nTe espero lá dentro! 🚀"
+                resposta = f"Boa! Entra aqui: 👇\n{LINK_COMUNIDADE}"
             elif texto == "2":
-                resposta = "Perfeito, já te atendo! Me diz o que você precisa? 😊"
+                resposta = "Perfeito, me diz o que precisa? 😊"
             else:
-                resposta = f"Não entendi. Digite *oi* para ver o menu.\nOu entre direto na comunidade: {LINK_COMUNIDADE}"
-
+                resposta = f"Digite *oi* para ver o menu ou entre direto: {LINK_COMUNIDADE}"
             enviar_msg(de, resposta)
-    except Exception as e:
-        print(e)
+    except:
+        pass
     return "ok", 200
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
